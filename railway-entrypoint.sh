@@ -69,6 +69,11 @@ else
 fi
 log "provisioning keys"
 (cd "$APP" && php spark env:provision)
+# Railway's edge address rotates per request, so a session bound to the client IP (matchIP defaults to true)
+# logs the user out on the next click. Same trap as sftpgo; turn the binding off.
+if ! grep -q '^session.matchIP' "$APP/.env"; then
+  printf '\nsession.matchIP = false\n' >> "$APP/.env"
+fi
 cp "$APP/.env" "$DATA/.env"
 chmod 600 "$DATA/.env"
 chown root:www-data "$APP/.env"
