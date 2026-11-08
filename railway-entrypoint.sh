@@ -41,6 +41,24 @@ fi
 chown -R www-data:www-data "$DATA/uploads"
 chmod 750 "$DATA/uploads"
 
+# --- database ----------------------------------------------------------------------------------------------------
+log "waiting for database"
+attempt=0
+until php -r '
+  mysqli_report(MYSQLI_REPORT_OFF);
+  $c = @mysqli_connect(getenv("MYSQL_HOST_NAME"), getenv("MYSQL_USERNAME"), getenv("MYSQL_PASSWORD"), getenv("MYSQL_DB_NAME"));
+  exit($c ? 0 : 1);
+' >/dev/null 2>&1; do
+  attempt=$((attempt + 1))
+  if [ "$attempt" -ge 60 ]; then echo "[railway] database never became reachable" >&2; exit 1; fi
+  sleep 3
+done
+
+# --- schema ---
+log "running migrations"
+(cd "$APP" && php spark migrate --all -n)
+
+# env:provision reads the app_config table, so it runs after the migrations create it (fresh database).
 # .env holds encryption.key and throttle.key. Losing it makes stored secrets unreadable, so it lives on the volume.
 if [ -s "$DATA/.env" ]; then
   cp "$DATA/.env" "$APP/.env"
@@ -55,22 +73,6 @@ cp "$APP/.env" "$DATA/.env"
 chmod 600 "$DATA/.env"
 chown root:www-data "$APP/.env"
 chmod 640 "$APP/.env"
-
-# --- database ----------------------------------------------------------------------------------------------------
-log "waiting for database"
-attempt=0
-until php -r '
-  mysqli_report(MYSQLI_REPORT_OFF);
-  $c = @mysqli_connect(getenv("MYSQL_HOST_NAME"), getenv("MYSQL_USERNAME"), getenv("MYSQL_PASSWORD"), getenv("MYSQL_DB_NAME"));
-  exit($c ? 0 : 1);
-' >/dev/null 2>&1; do
-  attempt=$((attempt + 1))
-  if [ "$attempt" -ge 60 ]; then echo "[railway] database never became reachable" >&2; exit 1; fi
-  sleep 3
-done
-
-log "running migrations"
-(cd "$APP" && php spark migrate --all -n)
 
 # --- admin password ----------------------------------------------------------------------------------------------
 # Replace the published default only while it is still the default, so a password the owner changed in the UI sticks.
