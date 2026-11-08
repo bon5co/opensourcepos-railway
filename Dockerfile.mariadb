@@ -1,0 +1,6 @@
+# MariaDB for the OpenSourcePOS template: database name and user are baked so the deploy form asks for neither.
+FROM mariadb:11.8.2@sha256:2bcbaec92bd9d4f6591bc8103d3a8e6d0512ee2235506e47a2e129d190444405
+
+ENV MARIADB_USER=ospos \
+    MARIADB_DATABASE=ospos \
+    TZ=Etc/UTC
